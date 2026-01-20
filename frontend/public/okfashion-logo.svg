@@ -1,0 +1,9 @@
+<svg width="256" height="256" viewBox="0 0 256 256" xmlns="http://www.w3.org/2000/svg" role="img" aria-labelledby="title desc">
+  <title id="title">OK Fashion Logo</title>
+  <desc id="desc">Stylized OK Fashion mark on a lavender brush stroke</desc>
+  <circle cx="128" cy="128" r="124" fill="#f5f5f5" />
+  <path d="M40 86c26-32 72-58 132-30 22 10 33 25 36 44 2 14-2 34-16 50-12 14-32 26-62 30-24 3-49-3-71-18C36 144 30 112 40 86Z" fill="#c8b5f8" />
+  <path d="M58 100c18-24 55-43 100-22 17 8 26 20 28 34 1 11-2 26-12 38-9 11-26 20-49 23-20 2-40-2-58-14-18-12-26-34-9-59Z" fill="#b59cf5" />
+  <text x="128" y="132" text-anchor="middle" font-family="'Brush Script MT', 'Segoe Script', cursive" font-size="88" fill="#4b2c8c" font-weight="600">OK</text>
+  <text x="128" y="168" text-anchor="middle" font-family="'Segoe UI', Arial, sans-serif" font-size="26" fill="#4b2c8c" font-weight="600">Fashion</text>
+</svg>

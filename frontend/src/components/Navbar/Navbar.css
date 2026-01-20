@@ -1,0 +1,131 @@
+.navbar {
+  background-color: var(--white);
+  box-shadow: 0 2px 10px rgba(0, 0, 0, 0.05);
+  position: sticky;
+  top: 0;
+  z-index: 1000;
+  padding: 1rem 0;
+}
+
+.navbar-container {
+  max-width: 1200px;
+  margin: 0 auto;
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: 0 2rem;
+}
+
+.navbar-logo {
+  font-size: 1.5rem;
+  font-weight: bold;
+  color: var(--text-dark);
+  text-decoration: none;
+  letter-spacing: -0.5px;
+}
+
+.navbar-menu {
+  display: flex;
+  list-style: none;
+  gap: 2rem;
+  align-items: center;
+}
+
+.navbar-menu a {
+  text-decoration: none;
+  color: var(--text-light);
+  font-weight: 500;
+  transition: color 0.3s;
+}
+
+.navbar-menu a:hover {
+  color: var(--primary-color);
+}
+
+.ai-stylist-link {
+  color: var(--primary-color) !important;
+  font-weight: 600 !important;
+}
+
+.navbar-actions {
+  display: flex;
+  align-items: center;
+  gap: 1rem;
+}
+
+.theme-toggle {
+  background: none;
+  border: none;
+  font-size: 1.2rem;
+  cursor: pointer;
+  color: var(--text-light);
+  transition: color 0.3s;
+  padding: 0.5rem;
+}
+
+.theme-toggle:hover {
+  color: var(--primary-color);
+}
+
+.btn-login {
+  background: none;
+  border: none;
+  color: var(--text-dark);
+  font-weight: 600;
+  padding: 0.5rem 1rem;
+  cursor: pointer;
+  transition: color 0.3s;
+}
+
+.btn-login:hover {
+  color: var(--primary-color);
+}
+
+.btn-signup {
+  background-color: var(--text-dark);
+  color: var(--white);
+  border: none;
+  padding: 0.65rem 1.5rem;
+  border-radius: 8px;
+  font-weight: 600;
+  cursor: pointer;
+  transition: background-color 0.3s;
+}
+
+.btn-signup:hover {
+  background-color: #000;
+}
+
+@media (max-width: 768px) {
+  .navbar-menu {
+    display: none;
+  }
+  
+  .navbar-container {
+    padding: 0 1rem;
+  }
+}
+
+/* Dark Mode Styles */
+body.dark-mode .navbar {
+  background-color: var(--surface-color);
+  box-shadow: 0 2px 10px rgba(0, 0, 0, 0.3);
+}
+
+body.dark-mode .navbar-logo {
+  color: var(--text-primary);
+}
+
+body.dark-mode .navbar-link {
+  color: var(--text-secondary);
+}
+
+body.dark-mode .navbar-link:hover,
+body.dark-mode .navbar-link.active {
+  color: var(--primary-color);
+}
+
+body.dark-mode .navbar-cta {
+  background: linear-gradient(135deg, var(--primary-color), var(--secondary-color));
+  color: var(--white);
+}

@@ -1,0 +1,152 @@
+.about-section {
+  padding: 6rem 2rem;
+  background: linear-gradient(135deg, #fdf2f8 0%, #fce7f3 100%);
+}
+
+.about-container {
+  max-width: 1200px;
+  margin: 0 auto;
+}
+
+.about-header {
+  text-align: center;
+  margin-bottom: 4rem;
+}
+
+.about-header h2 {
+  font-size: 2.5rem;
+  font-weight: 700;
+  color: var(--text-dark);
+  margin-bottom: 1rem;
+}
+
+.about-header p {
+  font-size: 1.1rem;
+  color: var(--text-light);
+}
+
+.about-content {
+  display: grid;
+  grid-template-columns: 1.2fr 1fr;
+  gap: 4rem;
+  align-items: center;
+  margin-bottom: 4rem;
+}
+
+.about-text h3 {
+  font-size: 1.8rem;
+  font-weight: 600;
+  color: var(--text-dark);
+  margin-bottom: 1rem;
+}
+
+.about-text p {
+  font-size: 1rem;
+  color: var(--text-light);
+  line-height: 1.8;
+  margin-bottom: 1.5rem;
+}
+
+.founder-info {
+  margin-top: 3rem;
+  padding: 2rem;
+  background-color: var(--white);
+  border-radius: 12px;
+  border-left: 4px solid var(--primary-color);
+}
+
+.founder-info h3 {
+  font-size: 1.3rem;
+  color: var(--primary-color);
+  margin-bottom: 0.5rem;
+}
+
+.founder-info p {
+  margin-bottom: 0;
+}
+
+.about-visual {
+  display: flex;
+  justify-content: center;
+  align-items: center;
+}
+
+.about-circle {
+  width: 350px;
+  height: 350px;
+  background: linear-gradient(135deg, #ec4899 0%, #f472b6 100%);
+  border-radius: 50%;
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  box-shadow: 0 20px 60px rgba(236, 72, 153, 0.3);
+  position: relative;
+  animation: float 3s ease-in-out infinite;
+}
+
+.decoration-dots {
+  display: flex;
+  gap: 1.5rem;
+  align-items: center;
+}
+
+.dot {
+  width: 50px;
+  height: 50px;
+  border-radius: 50%;
+  animation: float 3s ease-in-out infinite;
+}
+
+.dot-orange {
+  background-color: #fb923c;
+  animation-delay: 0s;
+}
+
+.dot-blue {
+  background-color: #60a5fa;
+  animation-delay: 0.5s;
+}
+
+.dot-yellow {
+  background-color: #fbbf24;
+  animation-delay: 1s;
+}
+
+.cta-section {
+  text-align: center;
+  margin-top: 3rem;
+}
+
+.cta-button {
+  background-color: var(--text-dark);
+  color: var(--white);
+  border: none;
+  padding: 1.2rem 3rem;
+  border-radius: 12px;
+  font-size: 1rem;
+  font-weight: 700;
+  letter-spacing: 0.5px;
+  cursor: pointer;
+  transition: transform 0.3s, box-shadow 0.3s;
+}
+
+.cta-button:hover {
+  transform: translateY(-2px);
+  box-shadow: 0 10px 30px rgba(0, 0, 0, 0.2);
+}
+
+@media (max-width: 768px) {
+  .about-content {
+    grid-template-columns: 1fr;
+    gap: 2rem;
+  }
+
+  .about-circle {
+    width: 250px;
+    height: 250px;
+  }
+
+  .about-header h2 {
+    font-size: 2rem;
+  }
+}

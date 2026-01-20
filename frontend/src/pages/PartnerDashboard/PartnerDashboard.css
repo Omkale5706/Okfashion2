@@ -1,0 +1,28 @@
+.partner-dashboard {
+  padding: 2rem;
+  background: var(--light-bg);
+  min-height: 80vh;
+}
+
+.partner-dashboard h1 {
+  margin-bottom: 0.5rem;
+}
+
+.card {
+  background: var(--white);
+  padding: 1rem;
+  border-radius: 12px;
+  margin-bottom: 1rem;
+  box-shadow: 0 4px 10px rgba(0,0,0,0.05);
+}
+
+.status {
+  padding: 0.25rem 0.75rem;
+  border-radius: 999px;
+  font-size: 0.85rem;
+}
+
+.status.pending { background: #fff3cd; }
+.status.confirmed { background: #d1ecf1; }
+.status.completed { background: #d4edda; }
+.status.cancelled { background: #f8d7da; }
