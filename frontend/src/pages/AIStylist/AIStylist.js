@@ -16,6 +16,8 @@ const AIStylist = () => {
   const [trendItems, setTrendItems] = useState([]);
   const [trendsLoading, setTrendsLoading] = useState(false);
   const [trendsError, setTrendsError] = useState('');
+  const [trendTab, setTrendTab] = useState('trending');
+  const [recTab, setRecTab] = useState('curated');
   const [formInputs, setFormInputs] = useState({
     gender: 'male',
     occasion: 'daily',
@@ -313,6 +315,14 @@ const AIStylist = () => {
     }
   };
 
+  const getTrendCards = () => {
+    if (trendItems.length === 0) return [];
+    const items = [...trendItems];
+    if (trendTab === 'curated') return items.slice(0, 6);
+    if (trendTab === 'foryou') return items.slice(2, 8);
+    return items.slice(0, 6);
+  };
+
   useEffect(() => {
     return () => {
       if (streamRef.current) {
@@ -326,6 +336,12 @@ const AIStylist = () => {
       fetchTrends();
     }
   }, [activeTab]);
+
+  useEffect(() => {
+    if (recTab === 'trending' && trendItems.length === 0 && !trendsLoading) {
+      fetchTrends();
+    }
+  }, [recTab]);
 
   const attachStreamToVideo = () => {
     if (videoRef.current && streamRef.current) {
@@ -529,6 +545,22 @@ const AIStylist = () => {
     setResults(null);
     stopCamera();
   };
+
+  const renderMatchCard = (title, subtitle, match) => (
+    <div className="rec-item-card">
+      <div className="rec-item-thumb">
+        <div className="rec-thumb-shine" />
+      </div>
+      <div className="rec-item-info">
+        <h5>{title}</h5>
+        <p>{subtitle}</p>
+        <div className="match-row">
+          <span className="match-star">★</span>
+          <span>{match}% match</span>
+        </div>
+      </div>
+    </div>
+  );
 
   return (
     <>
@@ -763,56 +795,176 @@ const AIStylist = () => {
 
           {activeTab === 'recommendations' && (
             <div className="tab-panel">
-              <div className="analysis-section">
-                <div className="section-header">
-                  <FaMagic />
-                  <h2>AI Recommendations</h2>
-                </div>
-                <p className="section-subtitle">Personalized outfit picks based on your analysis</p>
+              <div className="recommendations-hero">
+                <h2>AI Style Recommendations</h2>
+                <p>Personalized suggestions powered by advanced AI algorithms</p>
+              </div>
 
-                {!results ? (
+              {!results ? (
+                <div className="analysis-section">
                   <div className="empty-state">
                     <p>Run a photo analysis to unlock recommendations.</p>
                   </div>
-                ) : (
-                  <div className="results-container">
-                    <div className="analysis-grid">
-                      <div className="analysis-item">
-                        <h4>Best Outfit</h4>
-                        <p className="analysis-value">{results.recommendations.bestOutfit}</p>
-                      </div>
-                      <div className="analysis-item">
-                        <h4>Face Shape</h4>
-                        <p className="analysis-value">{results.faceShape}</p>
-                      </div>
-                      <div className="analysis-item">
-                        <h4>Body Shape</h4>
-                        <p className="analysis-value">{results.bodyShape}</p>
-                      </div>
-                    </div>
+                </div>
+              ) : (
+                <div className="recommendations-body">
+                  <div className="recommendations-tabs">
+                    <button
+                      className={`rec-tab ${recTab === 'curated' ? 'active' : ''}`}
+                      onClick={() => setRecTab('curated')}
+                    >
+                      AI Curated
+                    </button>
+                    <button
+                      className={`rec-tab ${recTab === 'trending' ? 'active' : ''}`}
+                      onClick={() => setRecTab('trending')}
+                    >
+                      Trending Now
+                    </button>
+                    <button
+                      className={`rec-tab ${recTab === 'foryou' ? 'active' : ''}`}
+                      onClick={() => setRecTab('foryou')}
+                    >
+                      Just for You
+                    </button>
+                  </div>
 
-                    {results.recommendations.rationale?.length > 0 && (
-                      <div className="recommendations-section">
-                        <h4>Why this works</h4>
-                        <ul>
+                  {recTab === 'curated' && (
+                    <>
+                      <div className="recommendation-card">
+                        <div className="rec-card-header">
+                          <span className="rec-chip">AI Curated</span>
+                          <div>
+                            <h3>Perfect for Your Body Shape</h3>
+                            <p>Specially selected for {results.bodyShape.toLowerCase()} body type</p>
+                          </div>
+                        </div>
+                        <div className="rec-card-grid">
+                          {renderMatchCard(
+                            results.recommendations.outfits[0] || results.recommendations.bestOutfit,
+                            'Accentuates your best features',
+                            94
+                          )}
+                          {renderMatchCard(
+                            results.recommendations.outfits[1] || 'Tailored straight-leg trousers',
+                            'Elongates your silhouette',
+                            91
+                          )}
+                        </div>
+                      </div>
+
+                      <div className="recommendation-card">
+                        <div className="rec-card-header">
+                          <span className="rec-chip">Color Match</span>
+                          <div>
+                            <h3>Complements Your Skin Tone</h3>
+                            <p>{results.skinTone} undertones work beautifully with these colors</p>
+                          </div>
+                        </div>
+                        <div className="rec-card-grid">
+                          {renderMatchCard(
+                            results.colorPalette[0] || 'Emerald Blouse',
+                            'Enhances your natural glow',
+                            89
+                          )}
+                          {renderMatchCard(
+                            results.colorPalette[1] || 'Coral Cardigan',
+                            'Brightens your complexion',
+                            87
+                          )}
+                        </div>
+                      </div>
+
+                      <div className="recommendation-card learning-card">
+                        <div className="rec-card-header">
+                          <span className="rec-chip">Continuous Learning</span>
+                          <div>
+                            <h3>Continuous Learning</h3>
+                            <p>Our AI learns from your preferences and feedback to provide better recommendations over time.</p>
+                          </div>
+                        </div>
+                        <div className="learning-grid">
+                          <div>
+                            <h4>7</h4>
+                            <p>Items Liked</p>
+                          </div>
+                          <div>
+                            <h4>94%</h4>
+                            <p>Accuracy Rate</p>
+                          </div>
+                          <div>
+                            <h4>12</h4>
+                            <p>Style Updates</p>
+                          </div>
+                        </div>
+                      </div>
+                    </>
+                  )}
+
+                  {recTab === 'trending' && (
+                    trendItems.length === 0 ? (
+                      <div className="empty-state">
+                        <p>Loading trends for you...</p>
+                      </div>
+                    ) : (
+                      <div className="trend-grid">
+                        {getTrendCards().map((item, index) => (
+                          <div className="trend-card" key={`${item.link}-${index}`}>
+                            <div className="trend-media">
+                              <span className="trend-badge">{80 + (index % 15)}% popular</span>
+                            </div>
+                            <div className="trend-body">
+                              <h4>{item.title}</h4>
+                              <p className="trend-meta">
+                                {item.source} • {item.pubDate ? new Date(item.pubDate).toLocaleDateString() : 'Latest'}
+                              </p>
+                              <a
+                                href={item.link}
+                                target="_blank"
+                                rel="noreferrer"
+                                className="trend-cta"
+                              >
+                                Explore Trend
+                              </a>
+                            </div>
+                          </div>
+                        ))}
+                      </div>
+                    )
+                  )}
+
+                  {recTab === 'foryou' && (
+                    <div className="recommendation-card">
+                      <div className="rec-card-header">
+                        <span className="rec-chip">Just for You</span>
+                        <div>
+                          <h3>{results.recommendations.bestOutfit}</h3>
+                          <p>Tailored to your {results.bodyShape.toLowerCase()} body type and {results.skinTone.toLowerCase()} skin tone</p>
+                        </div>
+                      </div>
+                      {results.recommendations.rationale?.length > 0 && (
+                        <ul className="recommendation-list">
                           {results.recommendations.rationale.map((item, i) => (
                             <li key={i}>{item}</li>
                           ))}
                         </ul>
+                      )}
+                      <div className="rec-card-grid">
+                        {renderMatchCard(
+                          results.recommendations.outfits[2] || 'Layered overshirt with relaxed jeans',
+                          'On-trend and effortless',
+                          90
+                        )}
+                        {renderMatchCard(
+                          results.recommendations.outfits[3] || 'Structured blazer with tapered pants',
+                          'Polished and versatile',
+                          88
+                        )}
                       </div>
-                    )}
-
-                    <div className="recommendations-section">
-                      <h4>Additional Outfit Ideas</h4>
-                      <ul>
-                        {results.recommendations.outfits.map((item, i) => (
-                          <li key={i}>{item}</li>
-                        ))}
-                      </ul>
                     </div>
-                  </div>
-                )}
-              </div>
+                  )}
+                </div>
+              )}
             </div>
           )}
 
@@ -824,6 +976,27 @@ const AIStylist = () => {
                   <h2>Fashion Trends</h2>
                 </div>
                 <p className="section-subtitle">Live headlines from leading fashion publications</p>
+
+                <div className="trend-tabs">
+                  <button
+                    className={`trend-tab ${trendTab === 'curated' ? 'active' : ''}`}
+                    onClick={() => setTrendTab('curated')}
+                  >
+                    AI Curated
+                  </button>
+                  <button
+                    className={`trend-tab ${trendTab === 'trending' ? 'active' : ''}`}
+                    onClick={() => setTrendTab('trending')}
+                  >
+                    Trending Now
+                  </button>
+                  <button
+                    className={`trend-tab ${trendTab === 'foryou' ? 'active' : ''}`}
+                    onClick={() => setTrendTab('foryou')}
+                  >
+                    Just for You
+                  </button>
+                </div>
 
                 {trendsLoading && (
                   <div className="empty-state">
@@ -844,24 +1017,48 @@ const AIStylist = () => {
                 )}
 
                 {!trendsLoading && !trendsError && trendItems.length > 0 && (
-                  <div className="trend-grid">
-                    {trendItems.map((item, index) => (
-                      <div className="trend-card" key={`${item.link}-${index}`}>
-                        <h4>{item.title}</h4>
-                        <p className="trend-meta">
-                          {item.source} • {item.pubDate ? new Date(item.pubDate).toLocaleDateString() : 'Latest'}
-                        </p>
-                        <a
-                          href={item.link}
-                          target="_blank"
-                          rel="noreferrer"
-                          className="trend-link"
-                        >
-                          Read article
-                        </a>
+                  <>
+                    <div className="trend-grid">
+                      {getTrendCards().map((item, index) => (
+                        <div className="trend-card" key={`${item.link}-${index}`}>
+                          <div className="trend-media">
+                            <span className="trend-badge">
+                              {trendTab === 'trending' ? `${80 + (index % 15)}% popular` : `${85 + (index % 10)}% match`}
+                            </span>
+                          </div>
+                          <div className="trend-body">
+                            <h4>{item.title}</h4>
+                            <p className="trend-meta">
+                              {item.source} • {item.pubDate ? new Date(item.pubDate).toLocaleDateString() : 'Latest'}
+                            </p>
+                            <a
+                              href={item.link}
+                              target="_blank"
+                              rel="noreferrer"
+                              className="trend-cta"
+                            >
+                              Explore Trend
+                            </a>
+                          </div>
+                        </div>
+                      ))}
+                    </div>
+
+                    <div className="trend-stats">
+                      <div className="trend-stat">
+                        <span>7</span>
+                        <p>Items Liked</p>
                       </div>
-                    ))}
-                  </div>
+                      <div className="trend-stat">
+                        <span>94%</span>
+                        <p>Accuracy Rate</p>
+                      </div>
+                      <div className="trend-stat">
+                        <span>12</span>
+                        <p>Style Updates</p>
+                      </div>
+                    </div>
+                  </>
                 )}
               </div>
             </div>

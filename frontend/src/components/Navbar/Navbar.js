@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
-import { FaSun, FaMoon } from 'react-icons/fa';
+import { FaSun, FaMoon, FaUserCircle } from 'react-icons/fa';
 import './Navbar.css';
 
 const Navbar = () => {
@@ -58,6 +58,15 @@ const Navbar = () => {
           <button className="theme-toggle" onClick={toggleTheme}>
             {darkMode ? <FaSun /> : <FaMoon />}
           </button>
+          {token && (
+            <button
+              className="profile-icon"
+              onClick={() => navigate('/profile-settings')}
+              aria-label="Profile"
+            >
+              <FaUserCircle />
+            </button>
+          )}
           {!token ? (
             <>
               <button className="btn-login" onClick={() => navigate('/login')}>

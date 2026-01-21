@@ -53,6 +53,21 @@
   gap: 1rem;
 }
 
+.profile-icon {
+  background: none;
+  border: none;
+  font-size: 1.4rem;
+  cursor: pointer;
+  color: var(--text-light);
+  transition: color 0.3s, transform 0.2s;
+  padding: 0.35rem;
+}
+
+.profile-icon:hover {
+  color: var(--primary-color);
+  transform: translateY(-1px);
+}
+
 .theme-toggle {
   background: none;
   border: none;
@@ -128,4 +143,8 @@ body.dark-mode .navbar-link.active {
 body.dark-mode .navbar-cta {
   background: linear-gradient(135deg, var(--primary-color), var(--secondary-color));
   color: var(--white);
+}
+
+body.dark-mode .profile-icon {
+  color: var(--text-secondary);
 }
