@@ -11,7 +11,7 @@ import AIStylist from './pages/AIStylist/AIStylist';
 import Login from './pages/Login/Login';
 import SignUp from './pages/SignUp/SignUp';
 import Contact from './pages/Contact/Contact';
-import Pricing from './pages/Pricing/Pricing';
+import Wishlist from './pages/Wishlist/Wishlist';
 import Dashboard from './pages/Dashboard/Dashboard';
 import PartnerSignup from './pages/PartnerSignup/PartnerSignup';
 import PartnerDashboard from './pages/PartnerDashboard/PartnerDashboard';
@@ -31,7 +31,8 @@ function App() {
           <Route path="/about" element={<About />} />
           <Route path="/services" element={<Services />} />
           <Route path="/ai-stylist" element={<AIStylist />} />
-          <Route path="/pricing" element={<Pricing />} />
+          <Route path="/pricing" element={<Wishlist />} />
+          <Route path="/wishlist" element={<Wishlist />} />
           <Route path="/salons" element={<SalonBrowser />} />
           <Route path="/login" element={<Login />} />
           <Route path="/signup" element={<SignUp />} />

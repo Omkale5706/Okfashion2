@@ -36,7 +36,7 @@ const Navbar = () => {
           <li><Link to="/">Home</Link></li>
           <li><Link to="/about">About</Link></li>
           <li><Link to="/services">Services</Link></li>
-          <li><Link to="/pricing">Pricing</Link></li>
+          <li><Link to="/wishlist">Wishlist</Link></li>
           <li><Link to="/salons">Salons</Link></li>
           {token && user?.role === 'user' && (
             <li><Link to="/dashboard">Dashboard</Link></li>
