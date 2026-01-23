@@ -1,5 +1,5 @@
 import React, { useState, useRef, useEffect } from 'react';
-import { FaCamera, FaUpload, FaTimes, FaMagic, FaChartLine } from 'react-icons/fa';
+import { FaCamera, FaUpload, FaTimes, FaMagic, FaChartLine, FaUserCircle, FaPalette, FaTint, FaMale, FaSave, FaFilePdf, FaRobot, FaCheckCircle } from 'react-icons/fa';
 import { FaceMesh } from '@mediapipe/face_mesh';
 import { Pose } from '@mediapipe/pose';
 import { jsPDF } from 'jspdf';
@@ -16,6 +16,7 @@ const AIStylist = () => {
   const [trendItems, setTrendItems] = useState([]);
   const [trendsLoading, setTrendsLoading] = useState(false);
   const [trendsError, setTrendsError] = useState('');
+  const [cvReady, setCvReady] = useState(false);
   const [trendTab, setTrendTab] = useState('trending');
   const [recTab, setRecTab] = useState('curated');
   const [formInputs, setFormInputs] = useState({
@@ -24,9 +25,12 @@ const AIStylist = () => {
     budget: 'medium'
   });
   const videoRef = useRef(null);
+  const imageRef = useRef(null);
+  const overlayRef = useRef(null);
   const streamRef = useRef(null);
   const faceMeshRef = useRef(null);
   const poseRef = useRef(null);
+  const isProcessingRef = useRef(false);
   const handleInputChange = (e) => {
     setFormInputs({ ...formInputs, [e.target.name]: e.target.value });
   };
@@ -127,6 +131,112 @@ const AIStylist = () => {
     img.src = src;
   });
 
+  const waitForOpenCV = () => new Promise((resolve, reject) => {
+    const start = Date.now();
+    const check = () => {
+      if (window.cv && window.cv.Mat) {
+        resolve(true);
+        return;
+      }
+      if (Date.now() - start > 15000) {
+        reject(new Error('OpenCV failed to load'));
+        return;
+      }
+      requestAnimationFrame(check);
+    };
+    check();
+  });
+
+  const ensureOpenCV = async () => {
+    if (cvReady) return true;
+    await waitForOpenCV();
+    setCvReady(true);
+    return true;
+  };
+
+  const lerpPoint = (a, b, t) => ({
+    x: a.x + (b.x - a.x) * t,
+    y: a.y + (b.y - a.y) * t
+  });
+
+  const toPixel = (pt, width, height) => ({
+    x: pt.x * width,
+    y: pt.y * height
+  });
+
+  const drawOverlay = ({
+    faceLandmarks,
+    poseLandmarks,
+    width,
+    height,
+    mirror = false
+  }) => {
+    const canvas = overlayRef.current;
+    if (!canvas) return;
+    const ctx = canvas.getContext('2d');
+    canvas.width = width;
+    canvas.height = height;
+    ctx.clearRect(0, 0, width, height);
+
+    ctx.save();
+    if (mirror) {
+      ctx.translate(width, 0);
+      ctx.scale(-1, 1);
+    }
+
+    if (faceLandmarks?.length) {
+      ctx.fillStyle = 'rgba(124,58,237,0.8)';
+      faceLandmarks.forEach((lm) => {
+        const p = toPixel(lm, width, height);
+        ctx.beginPath();
+        ctx.arc(p.x, p.y, 1.2, 0, Math.PI * 2);
+        ctx.fill();
+      });
+
+      const jawConnections = [
+        234, 93, 132, 58, 172, 136, 150, 149, 176, 148, 152,
+        377, 400, 378, 379, 365, 397, 288, 361, 323, 454
+      ];
+      ctx.strokeStyle = 'rgba(124,58,237,0.4)';
+      ctx.lineWidth = 1;
+      ctx.beginPath();
+      jawConnections.forEach((idx, i) => {
+        const p = toPixel(faceLandmarks[idx], width, height);
+        if (i === 0) ctx.moveTo(p.x, p.y);
+        else ctx.lineTo(p.x, p.y);
+      });
+      ctx.stroke();
+    }
+
+    if (poseLandmarks?.length) {
+      const connections = [
+        [11, 12], [11, 13], [13, 15], [12, 14], [14, 16],
+        [11, 23], [12, 24], [23, 24], [23, 25], [24, 26],
+        [25, 27], [26, 28]
+      ];
+      ctx.strokeStyle = 'rgba(236,72,153,0.6)';
+      ctx.lineWidth = 2;
+      connections.forEach(([a, b]) => {
+        const p1 = toPixel(poseLandmarks[a], width, height);
+        const p2 = toPixel(poseLandmarks[b], width, height);
+        ctx.beginPath();
+        ctx.moveTo(p1.x, p1.y);
+        ctx.lineTo(p2.x, p2.y);
+        ctx.stroke();
+      });
+
+      ctx.fillStyle = 'rgba(236,72,153,0.9)';
+      poseLandmarks.forEach((lm) => {
+        const p = toPixel(lm, width, height);
+        ctx.beginPath();
+        ctx.arc(p.x, p.y, 3, 0, Math.PI * 2);
+        ctx.fill();
+      });
+    }
+
+    ctx.restore();
+  };
+
   const initFaceMesh = async () => {
     if (!faceMeshRef.current) {
       const faceMesh = new FaceMesh({
@@ -200,11 +310,12 @@ const AIStylist = () => {
 
   const distance = (a, b) => Math.hypot(a.x - b.x, a.y - b.y);
 
-  const detectFaceShape = (landmarks) => {
+  // Face measurements from 468 landmarks (normalized coordinates)
+  const getFaceMeasurements = (landmarks) => {
     const leftCheek = landmarks[234];
     const rightCheek = landmarks[454];
-    const foreheadLeft = landmarks[70];
-    const foreheadRight = landmarks[300];
+    const foreheadLeft = landmarks[127];
+    const foreheadRight = landmarks[356];
     const chin = landmarks[152];
     const forehead = landmarks[10];
     const jawLeft = landmarks[172];
@@ -215,84 +326,293 @@ const AIStylist = () => {
     const jawWidth = distance(jawLeft, jawRight);
     const foreheadWidth = distance(foreheadLeft, foreheadRight);
 
-    const ratio = faceWidth / faceHeight;
-    const jawToForehead = jawWidth / foreheadWidth;
-
-    if (ratio < 0.75) return 'Rectangle';
-    if (jawToForehead < 0.9) return 'Heart';
-    if (ratio < 0.82 && jawToForehead < 0.98) return 'Oval';
-    if (ratio >= 0.82 && ratio <= 0.95 && Math.abs(jawToForehead - 1) < 0.08) return 'Square';
-    if (ratio >= 0.82 && ratio <= 1.02) return 'Round';
-    return 'Oval';
+    return {
+      faceWidth,
+      faceHeight,
+      jawWidth,
+      foreheadWidth
+    };
   };
 
-  const detectSkinTone = (image, landmarks) => {
-    const canvas = document.createElement('canvas');
-    canvas.width = image.naturalWidth || image.width;
-    canvas.height = image.naturalHeight || image.height;
-    const ctx = canvas.getContext('2d');
-    ctx.drawImage(image, 0, 0, canvas.width, canvas.height);
+  // Face shape classification using normalized ratios
+  const classifyFaceShape = ({ faceWidth, faceHeight, jawWidth, foreheadWidth }) => {
+    const heightToWidth = faceHeight / faceWidth;
+    const jawToFaceWidth = jawWidth / faceWidth;
+    const foreheadToFaceWidth = foreheadWidth / faceWidth;
 
-    const samplePoints = [234, 454, 10, 152, 168];
-    let r = 0;
-    let g = 0;
-    let b = 0;
-    let count = 0;
+    console.log({ heightToWidth, jawToFaceWidth, foreheadToFaceWidth });
 
-    samplePoints.forEach((index) => {
-      const lm = landmarks[index];
-      if (!lm) return;
-      const x = Math.min(canvas.width - 1, Math.max(0, Math.round(lm.x * canvas.width)));
-      const y = Math.min(canvas.height - 1, Math.max(0, Math.round(lm.y * canvas.height)));
-      const data = ctx.getImageData(x, y, 1, 1).data;
-      r += data[0];
-      g += data[1];
-      b += data[2];
-      count += 1;
-    });
+    const cheekbonesWidest = faceWidth > jawWidth && faceWidth > foreheadWidth;
+    const jawForeheadDiff = Math.abs(jawToFaceWidth - foreheadToFaceWidth);
 
-    if (!count) {
-      return { tone: 'Medium', rgb: { r: 150, g: 120, b: 100 } };
+    let faceShape = 'Uncertain';
+    let confidenceScore = 0.45;
+
+    if (heightToWidth > 1.35 && jawForeheadDiff < 0.05) {
+      faceShape = 'Rectangle';
+      confidenceScore = Math.min(1, 0.7 + (heightToWidth - 1.35));
+    } else if (heightToWidth < 1.25 && jawToFaceWidth > 0.85) {
+      faceShape = 'Square';
+      confidenceScore = Math.min(1, 0.65 + (jawToFaceWidth - 0.85));
+    } else if (heightToWidth > 1.3 && jawToFaceWidth < foreheadToFaceWidth) {
+      faceShape = 'Oval';
+      confidenceScore = Math.min(1, 0.65 + (heightToWidth - 1.3));
+    } else if (heightToWidth < 1.25 && jawToFaceWidth < 0.8) {
+      faceShape = 'Round';
+      confidenceScore = Math.min(1, 0.65 + (0.8 - jawToFaceWidth));
+    } else if (foreheadToFaceWidth < jawToFaceWidth && cheekbonesWidest) {
+      faceShape = 'Diamond';
+      confidenceScore = 0.65;
+    } else if (heightToWidth > 1.25 && jawToFaceWidth < 0.85) {
+      faceShape = 'Heart';
+      confidenceScore = 0.6;
     }
 
-    r /= count;
-    g /= count;
-    b /= count;
-
-    const luminance = 0.2126 * r + 0.7152 * g + 0.0722 * b;
-    let tone = 'Medium';
-    if (luminance > 180) tone = 'Light';
-    else if (luminance < 120) tone = 'Deep';
-
-    return { tone, rgb: { r, g, b } };
+    return {
+      faceShape,
+      confidenceScore,
+      ratios: {
+        heightToWidth,
+        jawToFaceWidth,
+        foreheadToFaceWidth
+      }
+    };
   };
 
-  const detectBodyShape = (poseLandmarks) => {
-    if (!poseLandmarks || poseLandmarks.length < 25) return 'Not detected';
+  // Body measurements from 33 pose landmarks (shoulders/hips + interpolated waist)
+  const getBodyMeasurements = (poseLandmarks) => {
+    if (!poseLandmarks || poseLandmarks.length < 25) return null;
     const leftShoulder = poseLandmarks[11];
     const rightShoulder = poseLandmarks[12];
     const leftHip = poseLandmarks[23];
     const rightHip = poseLandmarks[24];
-    if (!leftShoulder || !rightShoulder || !leftHip || !rightHip) return 'Not detected';
+    if (!leftShoulder || !rightShoulder || !leftHip || !rightHip) return null;
+
+    const leftWaist = lerpPoint(leftShoulder, leftHip, 0.5);
+    const rightWaist = lerpPoint(rightShoulder, rightHip, 0.5);
 
     const shoulderWidth = distance(leftShoulder, rightShoulder);
     const hipWidth = distance(leftHip, rightHip);
-    if (!shoulderWidth || !hipWidth) return 'Not detected';
+    const waistWidth = distance(leftWaist, rightWaist);
 
-    const ratio = shoulderWidth / hipWidth;
-    if (ratio > 1.15) return 'Inverted Triangle';
-    if (ratio < 0.9) return 'Pear';
-    return 'Rectangle';
+    return { shoulderWidth, hipWidth, waistWidth };
   };
 
-  const getColorPalette = (tone) => {
+  // Body shape classification using torso ratios
+  // Body shape classification using torso ratios
+  const classifyBodyShape = ({ shoulderWidth, hipWidth, waistWidth }) => {
+    const shoulderToHip = shoulderWidth / hipWidth;
+    const waistToShoulder = waistWidth / shoulderWidth;
+
+    let bodyShape = 'Rectangle';
+    let confidenceScore = 0.55;
+
+    if (shoulderToHip >= 1.2) {
+      bodyShape = 'Inverted Triangle';
+      confidenceScore = Math.min(1, 0.65 + (shoulderToHip - 1.2));
+    } else if (shoulderToHip <= 0.85) {
+      bodyShape = 'Triangle';
+      confidenceScore = Math.min(1, 0.65 + (0.85 - shoulderToHip));
+    } else if (waistToShoulder < 0.75) {
+      bodyShape = 'Trapezoid';
+      confidenceScore = Math.min(1, 0.6 + (0.75 - waistToShoulder));
+    } else if (waistToShoulder > 0.95) {
+      bodyShape = 'Oval';
+      confidenceScore = Math.min(1, 0.6 + (waistToShoulder - 0.95));
+    }
+
+    return {
+      bodyShape,
+      confidenceScore,
+      ratios: {
+        shoulderToHip,
+        waistToShoulder
+      }
+    };
+  };
+
+  const ConfidenceBar = ({ value }) => {
+    const pct = Math.round(Math.min(1, Math.max(0, value || 0)) * 100);
+    return (
+      <div className="confidence">
+        <div className="confidence-track">
+          <span className="confidence-fill" style={{ width: `${pct}%` }}></span>
+        </div>
+        <span className="confidence-label">{pct}% confidence</span>
+      </div>
+    );
+  };
+
+  const AnalysisCard = ({ icon, label, value, confidence }) => (
+    <div className="analysis-card">
+      <div className="analysis-card-header">
+        <span className="analysis-icon">{icon}</span>
+        <span className="analysis-label">{label}</span>
+      </div>
+      <div className="analysis-value-strong">{value || 'Unavailable'}</div>
+      <ConfidenceBar value={confidence} />
+    </div>
+  );
+
+  const getColorReason = (tone, undertone, color) => {
+    if (!tone || !undertone) return `Balances your palette with ${color}.`;
+    if (undertone === 'Warm') return `${color} complements warm undertones and adds glow.`;
+    if (undertone === 'Cool') return `${color} enhances cool undertones with crisp contrast.`;
+    return `${color} keeps your palette balanced and refined.`;
+  };
+
+  const ColorPalette = ({ colors, tone, undertone }) => (
+    <div className="color-swatches">
+      {colors.map((color, index) => (
+        <div key={color} className="color-box" data-highlight={index === 0}>
+          <div
+            className="color-chip"
+            style={{ background: `linear-gradient(135deg, ${color} 0%, rgba(255,255,255,0.25) 100%)` }}
+            title={getColorReason(tone, undertone, color)}
+          ></div>
+          <span>{color}</span>
+        </div>
+      ))}
+    </div>
+  );
+
+  const getFaceBounds = (landmarks, width, height) => {
+    let minX = width;
+    let minY = height;
+    let maxX = 0;
+    let maxY = 0;
+
+    landmarks.forEach((lm) => {
+      const x = lm.x * width;
+      const y = lm.y * height;
+      minX = Math.min(minX, x);
+      minY = Math.min(minY, y);
+      maxX = Math.max(maxX, x);
+      maxY = Math.max(maxY, y);
+    });
+
+    const paddingX = (maxX - minX) * 0.08;
+    const paddingY = (maxY - minY) * 0.1;
+
+    const x = Math.max(0, minX - paddingX);
+    const y = Math.max(0, minY - paddingY);
+    const w = Math.min(width - x, maxX - minX + paddingX * 2);
+    const h = Math.min(height - y, maxY - minY + paddingY * 2);
+
+    return { x: Math.round(x), y: Math.round(y), w: Math.round(w), h: Math.round(h) };
+  };
+
+  // Skin tone + undertone from face ROI using OpenCV.js K-Means clustering
+  const getSkinToneOpenCV = async (image, landmarks) => {
+    await ensureOpenCV();
+    const cv = window.cv;
+    const width = image.naturalWidth || image.width;
+    const height = image.naturalHeight || image.height;
+    const bounds = getFaceBounds(landmarks, width, height);
+
+    const src = cv.imread(image);
+    const roi = src.roi(new cv.Rect(bounds.x, bounds.y, bounds.w, bounds.h));
+    const roiRgb = new cv.Mat();
+    cv.cvtColor(roi, roiRgb, cv.COLOR_RGBA2RGB);
+
+    const roiHsv = new cv.Mat();
+    cv.cvtColor(roiRgb, roiHsv, cv.COLOR_RGB2HSV);
+
+    const pixels = [];
+    for (let y = 0; y < roiHsv.rows; y += 2) {
+      for (let x = 0; x < roiHsv.cols; x += 2) {
+        const hsvIndex = (y * roiHsv.cols + x) * 3;
+        const h = roiHsv.data[hsvIndex];
+        const s = roiHsv.data[hsvIndex + 1];
+        const v = roiHsv.data[hsvIndex + 2];
+        if (v < 40 || v > 230 || s < 40) continue;
+        const rgbIndex = (y * roiRgb.cols + x) * 3;
+        pixels.push(
+          roiRgb.data[rgbIndex],
+          roiRgb.data[rgbIndex + 1],
+          roiRgb.data[rgbIndex + 2]
+        );
+      }
+    }
+
+    if (pixels.length < 30) {
+      src.delete();
+      roi.delete();
+      roiRgb.delete();
+      roiHsv.delete();
+      throw new Error('Low light or unclear image');
+    }
+
+    const sampleCount = pixels.length / 3;
+    const samples = cv.matFromArray(sampleCount, 3, cv.CV_32F, pixels);
+    const labels = new cv.Mat();
+    const centers = new cv.Mat();
+    const criteria = new cv.TermCriteria(cv.TermCriteria_EPS + cv.TermCriteria_MAX_ITER, 10, 1.0);
+    cv.kmeans(samples, 3, labels, criteria, 3, cv.KMEANS_PP_CENTERS, centers);
+
+    const counts = new Array(3).fill(0);
+    for (let i = 0; i < labels.rows; i += 1) {
+      counts[labels.intAt(i, 0)] += 1;
+    }
+    const dominantIndex = counts.indexOf(Math.max(...counts));
+    const dominantRatio = counts[dominantIndex] / sampleCount;
+    const dominant = {
+      r: centers.floatAt(dominantIndex, 0),
+      g: centers.floatAt(dominantIndex, 1),
+      b: centers.floatAt(dominantIndex, 2)
+    };
+
+    const luminance = 0.2126 * dominant.r + 0.7152 * dominant.g + 0.0722 * dominant.b;
+    let tone = 'Medium';
+    if (luminance >= 190) tone = 'Fair';
+    else if (luminance >= 165) tone = 'Light';
+    else if (luminance < 120) tone = 'Deep';
+
+    const lab = new cv.Mat();
+    const dominantMat = cv.matFromArray(1, 1, cv.CV_8UC3, [
+      Math.round(dominant.r),
+      Math.round(dominant.g),
+      Math.round(dominant.b)
+    ]);
+    cv.cvtColor(dominantMat, lab, cv.COLOR_RGB2Lab);
+    const a = lab.data[1];
+    const b = lab.data[2];
+    let undertone = 'Neutral';
+    if (b > 150 && a > 135) undertone = 'Warm';
+    else if (b < 135) undertone = 'Cool';
+
+    src.delete();
+    roi.delete();
+    roiRgb.delete();
+    roiHsv.delete();
+    samples.delete();
+    labels.delete();
+    centers.delete();
+    dominantMat.delete();
+    lab.delete();
+
+    return { tone, undertone, rgb: dominant, confidenceScore: Math.min(1, 0.5 + dominantRatio) };
+  };
+
+  const getColorPalette = (tone, undertone) => {
+    if (tone === 'Fair') {
+      return undertone === 'Warm'
+        ? ['Peach', 'Coral', 'Ivory', 'Buttercream', 'Apricot']
+        : ['Lavender', 'Powder Blue', 'Rose', 'Ivory', 'Silver'];
+    }
     if (tone === 'Light') {
-      return ['Powder Blue', 'Soft Lavender', 'Blush', 'Ivory', 'Mint'];
+      return undertone === 'Warm'
+        ? ['Golden Beige', 'Olive', 'Warm Camel', 'Terracotta', 'Cream']
+        : ['Cool Grey', 'Seafoam', 'Sky Blue', 'Mauve', 'Soft White'];
     }
     if (tone === 'Deep') {
-      return ['Gold', 'Cobalt Blue', 'Crimson', 'Olive', 'White'];
+      return undertone === 'Warm'
+        ? ['Mustard', 'Bronze', 'Olive', 'Chocolate', 'Gold']
+        : ['Cobalt', 'Plum', 'Emerald', 'Charcoal', 'White'];
     }
-    return ['Emerald Green', 'Navy Blue', 'Burgundy', 'Teal', 'Cream'];
+    return undertone === 'Warm'
+      ? ['Emerald', 'Teal', 'Warm Beige', 'Burgundy', 'Cream']
+      : ['Navy', 'Ruby', 'Slate', 'Lilac', 'Soft White'];
   };
 
 
@@ -330,6 +650,59 @@ const AIStylist = () => {
       }
     };
   }, []);
+
+  useEffect(() => {
+    let isMounted = true;
+
+    const processFrame = async () => {
+      if (!isMounted || !cameraActive) return;
+      const video = videoRef.current;
+      if (!video || video.readyState < 2) {
+        requestAnimationFrame(processFrame);
+        return;
+      }
+      if (isProcessingRef.current) {
+        requestAnimationFrame(processFrame);
+        return;
+      }
+
+      isProcessingRef.current = true;
+      try {
+        const faceRes = await runFaceMesh(video);
+        let poseRes = null;
+        try {
+          poseRes = await runPose(video);
+        } catch (poseError) {
+          console.warn('Pose analysis failed:', poseError);
+        }
+
+        drawOverlay({
+          faceLandmarks: faceRes.multiFaceLandmarks?.[0],
+          poseLandmarks: poseRes?.poseLandmarks || null,
+          width: video.videoWidth,
+          height: video.videoHeight,
+          mirror: true
+        });
+      } catch (error) {
+        console.error('Live analysis error:', error);
+      } finally {
+        isProcessingRef.current = false;
+      }
+
+      requestAnimationFrame(processFrame);
+    };
+
+    if (cameraActive) {
+      processFrame();
+    } else if (overlayRef.current) {
+      const ctx = overlayRef.current.getContext('2d');
+      ctx.clearRect(0, 0, overlayRef.current.width, overlayRef.current.height);
+    }
+
+    return () => {
+      isMounted = false;
+    };
+  }, [cameraActive]);
 
   useEffect(() => {
     if (activeTab === 'trends' && trendItems.length === 0 && !trendsLoading) {
@@ -457,19 +830,43 @@ const AIStylist = () => {
       }
 
       const faceLandmarks = faceResults.multiFaceLandmarks[0];
-      const faceShape = detectFaceShape(faceLandmarks);
-      const { tone: skinTone } = detectSkinTone(image, faceLandmarks);
-      const bodyShape = poseResults?.poseLandmarks
-        ? detectBodyShape(poseResults.poseLandmarks)
-        : 'Not detected';
-      const colorPalette = getColorPalette(skinTone);
-      const recs = generateRecommendations(formInputs, { faceShape, skinTone, bodyShape, colorPalette });
+      const faceMeasurements = getFaceMeasurements(faceLandmarks);
+      const faceShapeResult = classifyFaceShape(faceMeasurements);
+      const faceShape = faceShapeResult.faceShape;
+      const skinData = await getSkinToneOpenCV(image, faceLandmarks);
+      const bodyMeasurements = poseResults?.poseLandmarks
+        ? getBodyMeasurements(poseResults.poseLandmarks)
+        : null;
+      const bodyShapeResult = bodyMeasurements
+        ? classifyBodyShape(bodyMeasurements)
+        : null;
+      const bodyShape = bodyShapeResult?.bodyShape || null;
+      const colorPalette = getColorPalette(skinData.tone, skinData.undertone);
+      const recs = generateRecommendations(formInputs, {
+        faceShape,
+        skinTone: skinData.tone,
+        undertone: skinData.undertone,
+        bodyShape,
+        colorPalette
+      });
 
       setResults({
         faceShape,
-        skinTone,
+        faceShapeConfidence: faceShapeResult.confidenceScore,
+        faceShapeRatios: faceShapeResult.ratios,
+        skinTone: skinData.tone,
+        undertone: skinData.undertone,
+        skinToneConfidence: skinData.confidenceScore,
         bodyShape,
+        bodyShapeConfidence: bodyShapeResult?.confidenceScore || 0,
         colorPalette,
+        measurements: {
+          faceWidth: faceMeasurements.faceWidth,
+          faceHeight: faceMeasurements.faceHeight,
+          shoulderWidth: bodyMeasurements?.shoulderWidth || null,
+          hipWidth: bodyMeasurements?.hipWidth || null,
+          waistWidth: bodyMeasurements?.waistWidth || null
+        },
         recommendations: {
           outfits: recs.outfits,
           hairstyles: recs.hairstyles,
@@ -478,10 +875,19 @@ const AIStylist = () => {
           rationale: recs.rationale
         }
       });
+      const targetWidth = imageRef.current?.clientWidth || image.naturalWidth || image.width;
+      const targetHeight = imageRef.current?.clientHeight || image.naturalHeight || image.height;
+      drawOverlay({
+        faceLandmarks,
+        poseLandmarks: poseResults?.poseLandmarks || null,
+        width: targetWidth,
+        height: targetHeight,
+        mirror: false
+      });
       toast.success('Analysis complete!');
     } catch (error) {
       console.error('Analysis error:', error);
-      toast.error('Unable to analyze image. Use a clear, well-lit photo.');
+      toast.error(error.message || 'Unable to analyze image. Use a clear, well-lit photo.');
       setResults(null);
     } finally {
       setAnalyzing(false);
@@ -508,6 +914,8 @@ const AIStylist = () => {
             faceShape: results.faceShape,
             skinTone: results.skinTone,
             bodyType: results.bodyShape,
+            undertone: results.undertone,
+            measurements: results.measurements,
             colorPalette: results.colorPalette.map((color) => ({ color })),
             recommendations: {
               styles: results.recommendations.outfits,
@@ -569,6 +977,24 @@ const AIStylist = () => {
           <div className="ai-stylist-header">
             <h1>AI Fashion Stylist</h1>
             <p>Upload your photo and get personalized outfit recommendations powered by AI</p>
+          </div>
+
+          <div className="onboarding-steps">
+            <div className="onboarding-card">
+              <span className="step-tag">Step 1</span>
+              <h4>Upload photo</h4>
+              <p>Pick a clear image with good lighting.</p>
+            </div>
+            <div className="onboarding-card">
+              <span className="step-tag">Step 2</span>
+              <h4>AI analysis</h4>
+              <p>We analyze face shape, skin tone, and body type.</p>
+            </div>
+            <div className="onboarding-card">
+              <span className="step-tag">Step 3</span>
+              <h4>Get style & salons</h4>
+              <p>Receive curated outfits and nearby salon picks.</p>
+            </div>
           </div>
 
           <div className="tabs-container">
@@ -682,6 +1108,7 @@ const AIStylist = () => {
                         toast.error('Error loading video stream');
                       }}
                     />
+                    <canvas ref={overlayRef} className="overlay-canvas" />
                     <div className="camera-controls">
                       <button className="capture-btn" onClick={capturePhoto}>
                         <FaCamera /> Capture Photo
@@ -693,7 +1120,15 @@ const AIStylist = () => {
                   </div>
                 ) : (
                   <div className="captured-image-container">
-                    <img src={capturedImage} alt="Captured" className="captured-image" />
+                    <div className="image-overlay-wrapper">
+                      <img
+                        ref={imageRef}
+                        src={capturedImage}
+                        alt="Captured"
+                        className="captured-image"
+                      />
+                      <canvas ref={overlayRef} className="overlay-canvas" />
+                    </div>
                     <button className="reset-btn" onClick={resetAnalysis}>
                       <FaTimes /> Reset
                     </button>
@@ -707,13 +1142,25 @@ const AIStylist = () => {
                 <FaMagic />
                 <h2>AI Analysis</h2>
               </div>
-              <p className="section-subtitle">Body shape, face features, and style analysis</p>
+              <div className="analysis-subtitle">
+                <p>Body shape, face features, and style analysis</p>
+                <span className={`ai-indicator ${analyzing ? 'scanning' : results ? 'done' : ''}`}>
+                  <FaRobot /> {analyzing ? 'Scanning…' : results ? 'Analysis complete' : 'Waiting for scan'}
+                  {results && !analyzing && <FaCheckCircle />}
+                </span>
+                <span className="ai-micro">Analyzed using facial landmarks & body proportions</span>
+              </div>
 
               {!results ? (
                 <div className="empty-state">
                   {analyzing ? (
                     <div className="analyzing-state">
-                      <div className="spinner"></div>
+                      <div className="analysis-skeleton">
+                        <div className="skeleton-line title"></div>
+                        <div className="skeleton-line"></div>
+                        <div className="skeleton-line"></div>
+                        <div className="skeleton-line short"></div>
+                      </div>
                       <p>Analyzing your photo...</p>
                     </div>
                   ) : (
@@ -722,42 +1169,48 @@ const AIStylist = () => {
                 </div>
               ) : (
                 <div className="results-container">
-                  <div className="result-actions">
+                  <div className="result-actions premium-actions">
                     <button className="btn-secondary" onClick={saveScanResult}>
-                      Save Result
+                      <FaSave /> Save Result
                     </button>
                     <button className="btn-primary" onClick={downloadPdf}>
-                      Download PDF
+                      <FaFilePdf /> Download PDF
                     </button>
                   </div>
-                  <div className="analysis-grid">
-                    <div className="analysis-item">
-                      <h4>Face Shape</h4>
-                      <p className="analysis-value">{results.faceShape}</p>
-                    </div>
-                    <div className="analysis-item">
-                      <h4>Skin Tone</h4>
-                      <p className="analysis-value">{results.skinTone}</p>
-                    </div>
-                    <div className="analysis-item">
-                      <h4>Body Shape</h4>
-                      <p className="analysis-value">{results.bodyShape}</p>
-                    </div>
+                  <div className="analysis-grid premium-grid">
+                    <AnalysisCard
+                      icon={<FaUserCircle />}
+                      label="Face Shape"
+                      value={results.faceShape}
+                      confidence={results.faceShapeConfidence}
+                    />
+                    <AnalysisCard
+                      icon={<FaPalette />}
+                      label="Skin Tone"
+                      value={results.skinTone}
+                      confidence={results.skinToneConfidence}
+                    />
+                    <AnalysisCard
+                      icon={<FaTint />}
+                      label="Undertone"
+                      value={results.undertone}
+                      confidence={results.skinToneConfidence}
+                    />
+                    <AnalysisCard
+                      icon={<FaMale />}
+                      label="Body Shape"
+                      value={results.bodyShape}
+                      confidence={results.bodyShapeConfidence}
+                    />
                   </div>
 
-                  <div className="color-section">
+                  <div className="color-section premium-colors">
                     <h4>Your Perfect Colors</h4>
-                    <div className="color-swatches">
-                      {results.colorPalette.map((color, index) => (
-                        <div key={index} className="color-box">
-                          <div
-                            className="color-circle"
-                            style={{ backgroundColor: color }}
-                          ></div>
-                          <span>{color}</span>
-                        </div>
-                      ))}
-                    </div>
+                    <ColorPalette
+                      colors={results.colorPalette}
+                      tone={results.skinTone}
+                      undertone={results.undertone}
+                    />
                   </div>
 
                   <div className="recommendations-section">

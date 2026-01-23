@@ -2,6 +2,7 @@ import React, { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import axios from 'axios';
 import { toast } from 'react-toastify';
+import { FaCamera, FaMagic, FaHeart, FaChartLine, FaUpload, FaEdit } from 'react-icons/fa';
 import './Dashboard.css';
 
 const Dashboard = () => {
@@ -9,7 +10,6 @@ const Dashboard = () => {
   const [user, setUser] = useState(null);
   const [bookings, setBookings] = useState([]);
   const [scans, setScans] = useState([]);
-  const [activeTab, setActiveTab] = useState('overview');
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
@@ -65,181 +65,110 @@ const Dashboard = () => {
 
   if (loading) return <div className="dashboard-loading">Loading...</div>;
 
+  const photosAnalyzed = scans.length;
+  const recommendationsCount = scans.reduce(
+    (acc, scan) => acc + (scan.analysis?.recommendations?.styles?.length || 0),
+    0
+  );
+  const savedOutfits = user?.savedOutfits?.length || 0;
+  const styleScore = photosAnalyzed ? Math.min(100, 70 + photosAnalyzed * 2) : 0;
+
   return (
     <div className="dashboard-page">
       <div className="dashboard-header">
-        <h1>Welcome, {user?.name || 'User'}</h1>
-        <p>Manage your profile, bookings, and style scans</p>
+        <h1>Welcome back, {user?.name || 'User'}!</h1>
+        <p>Here's your style journey overview</p>
       </div>
 
-      <div className="dashboard-nav">
-        <button
-          className={`tab-btn ${activeTab === 'overview' ? 'active' : ''}`}
-          onClick={() => setActiveTab('overview')}
-        >
-          Overview
-        </button>
-        <button
-          className={`tab-btn ${activeTab === 'bookings' ? 'active' : ''}`}
-          onClick={() => setActiveTab('bookings')}
-        >
-          My Bookings
-        </button>
-        <button
-          className={`tab-btn ${activeTab === 'scans' ? 'active' : ''}`}
-          onClick={() => setActiveTab('scans')}
-        >
-          Style Scans
-        </button>
-        <button
-          className={`tab-btn ${activeTab === 'settings' ? 'active' : ''}`}
-          onClick={() => setActiveTab('settings')}
-        >
-          Settings
-        </button>
+      <div className="stats-grid">
+        <div className="stat-card">
+          <div className="stat-icon">
+            <FaCamera />
+          </div>
+          <div>
+            <h3>{photosAnalyzed}</h3>
+            <p>Photos Analyzed</p>
+            <span>AI style scans completed</span>
+          </div>
+        </div>
+        <div className="stat-card">
+          <div className="stat-icon">
+            <FaMagic />
+          </div>
+          <div>
+            <h3>{recommendationsCount}</h3>
+            <p>Recommendations</p>
+            <span>Personalized suggestions</span>
+          </div>
+        </div>
+        <div className="stat-card">
+          <div className="stat-icon">
+            <FaHeart />
+          </div>
+          <div>
+            <h3>{savedOutfits}</h3>
+            <p>Saved Outfits</p>
+            <span>Favorite combinations</span>
+          </div>
+        </div>
+        <div className="stat-card">
+          <div className="stat-icon">
+            <FaChartLine />
+          </div>
+          <div>
+            <h3>{styleScore}%</h3>
+            <p>Style Score</p>
+            <span>Fashion compatibility</span>
+          </div>
+        </div>
       </div>
 
-      <div className="dashboard-content">
-        {activeTab === 'overview' && (
-          <div className="overview-section">
-            <div className="stats-grid">
-              <div className="stat-card">
-                <h3>{bookings.length}</h3>
-                <p>Total Bookings</p>
-              </div>
-              <div className="stat-card">
-                <h3>{bookings.filter(b => b.status === 'completed').length}</h3>
-                <p>Completed</p>
-              </div>
-              <div className="stat-card">
-                <h3>{scans.length}</h3>
-                <p>Style Scans</p>
-              </div>
-              <div className="stat-card">
-                <h3>{user?.savedOutfits?.length || 0}</h3>
-                <p>Saved Outfits</p>
-              </div>
-            </div>
-
-            <div className="recent-bookings">
-              <h2>Recent Bookings</h2>
-              {bookings.length > 0 ? (
-                <div className="booking-list">
-                  {bookings.slice(0, 3).map(booking => (
-                    <div key={booking._id} className="booking-item">
-                      <div>
-                        <h4>{booking.salon?.name}</h4>
-                        <p>{booking.service?.serviceName}</p>
-                        <p className="date">{new Date(booking.bookingDate).toLocaleDateString()}</p>
-                      </div>
-                      <span className={`status ${booking.status}`}>{booking.status}</span>
-                    </div>
-                  ))}
-                </div>
-              ) : (
-                <p className="empty-state">No bookings yet</p>
-              )}
+      <div className="dashboard-main">
+        <div className="dashboard-panel">
+          <div className="panel-header">
+            <div>
+              <h2>Style Analysis</h2>
+              <p>Upload your photos to get personalized fashion recommendations</p>
             </div>
           </div>
-        )}
 
-        {activeTab === 'bookings' && (
-          <div className="bookings-section">
-            <h2>My Bookings</h2>
-            {bookings.length > 0 ? (
-              <div className="booking-list">
-                {bookings.map(booking => (
-                  <div key={booking._id} className="booking-card">
-                    <div className="booking-info">
-                      <h3>{booking.salon?.name}</h3>
-                      <p>Service: {booking.service?.serviceName}</p>
-                      <p>Price: ₹{booking.totalPrice}</p>
-                      <p>Date: {new Date(booking.bookingDate).toLocaleDateString()}</p>
-                      <p>Time: {booking.timeSlot?.startTime}</p>
-                    </div>
-                    <div className="booking-actions">
-                      <span className={`status ${booking.status}`}>{booking.status}</span>
-                      {booking.status === 'completed' && !booking.rating && (
-                        <button className="btn-small" onClick={() => navigate(`/scan-result/${booking._id}`)}>
-                          Rate
-                        </button>
-                      )}
-                    </div>
-                  </div>
-                ))}
-              </div>
-            ) : (
-              <p className="empty-state">No bookings yet</p>
-            )}
+          <div className="upload-area">
+            <div className="upload-icon">
+              <FaUpload />
+            </div>
+            <h4>Upload your photos</h4>
+            <p>Drag and drop or click to select face and body photos</p>
+            <label className="upload-button">
+              Choose Files
+              <input type="file" multiple hidden />
+            </label>
           </div>
-        )}
+        </div>
 
-        {activeTab === 'scans' && (
-          <div className="scans-section">
-            <h2>My Style Scans</h2>
-            {scans.length > 0 ? (
-              <div className="scans-grid">
-                {scans.map(scan => (
-                  <div key={scan._id} className="scan-card">
-                    <img src={scan.imageUrl} alt="Scan" className="scan-image" />
-                    <div className="scan-info">
-                      <p className="scan-date">{new Date(scan.createdAt).toLocaleDateString()}</p>
-                      <div className="scan-actions">
-                        <button className="btn-small" onClick={() => navigate(`/scan-result/${scan._id}`)}>
-                          View
-                        </button>
-                        <button className="btn-small secondary">
-                          {scan.isSaved ? 'Saved' : 'Save'}
-                        </button>
-                      </div>
-                    </div>
-                  </div>
-                ))}
-              </div>
-            ) : (
-              <p className="empty-state">No scans yet. Start by visiting the AI Stylist page!</p>
-            )}
+        <div className="dashboard-panel profile-panel">
+          <div className="panel-header">
+            <h2>Profile</h2>
+            <button className="icon-button" onClick={() => navigate('/profile-settings')}>
+              <FaEdit />
+            </button>
           </div>
-        )}
-
-        {activeTab === 'settings' && (
-          <div className="settings-section">
-            <h2>Profile Settings</h2>
-            <div className="settings-form">
-              <div className="form-group">
-                <label>Name</label>
-                <input type="text" value={user?.name} readOnly />
-              </div>
-              <div className="form-group">
-                <label>Email</label>
-                <input type="email" value={user?.email} readOnly />
-              </div>
-              <div className="form-group">
-                <label>Body Type</label>
-                <select defaultValue={user?.preferences?.bodyType || ''}>
-                  <option>Select</option>
-                  <option>Pear</option>
-                  <option>Apple</option>
-                  <option>Hourglass</option>
-                  <option>Rectangle</option>
-                </select>
-              </div>
-              <div className="form-group">
-                <label>Skin Tone</label>
-                <select defaultValue={user?.preferences?.skinTone || ''}>
-                  <option>Select</option>
-                  <option>Fair</option>
-                  <option>Medium</option>
-                  <option>Olive</option>
-                  <option>Deep</option>
-                </select>
-              </div>
-              <button className="btn-primary" onClick={() => navigate('/profile-settings')}>
-                Edit Full Profile
-              </button>
+          <div className="profile-avatar">
+            <div className="avatar-circle"></div>
+            <button className="avatar-button">
+              <FaCamera />
+            </button>
+          </div>
+          <div className="profile-info">
+            <div>
+              <p>Name</p>
+              <span>{user?.name || 'User'}</span>
+            </div>
+            <div>
+              <p>Email</p>
+              <span>{user?.email || 'user@example.com'}</span>
             </div>
           </div>
-        )}
+        </div>
       </div>
     </div>
   );

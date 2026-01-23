@@ -16,6 +16,8 @@
   --surface-color: #f8fafc;
   --text-primary: #1e293b;
   --text-secondary: #64748b;
+  --text-color: #1e293b;
+  --card-bg: #ffffff;
   --border-color: #e2e8f0;
 }
 
@@ -38,6 +40,8 @@ body.dark-mode {
   --surface-color: #1e293b;
   --text-primary: #f1f5f9;
   --text-secondary: #cbd5e1;
+  --text-color: #f1f5f9;
+  --card-bg: #1e293b;
   --border-color: #334155;
   background-color: var(--dark-bg);
   color: var(--text-primary);

@@ -3,7 +3,7 @@
   display: flex;
   align-items: center;
   background: linear-gradient(135deg, #f8fafc 0%, #f1f5f9 100%);
-  padding: 4rem 2rem;
+  padding: 4.5rem 2rem;
 }
 
 .hero-container {
@@ -42,6 +42,7 @@
 .hero-buttons {
   display: flex;
   gap: 1rem;
+  flex-wrap: wrap;
 }
 
 .btn-primary {
@@ -213,10 +214,11 @@
   .hero-container {
     grid-template-columns: 1fr;
     gap: 2rem;
+    text-align: center;
   }
 
   .hero-title {
-    font-size: 2.5rem;
+    font-size: 2.4rem;
   }
 
   .hero-circle {
@@ -226,5 +228,21 @@
 
   .hero-buttons {
     flex-direction: column;
+    align-items: stretch;
+  }
+
+  .btn-primary,
+  .btn-secondary {
+    width: 100%;
+    justify-content: center;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .hero-content,
+  .hero-visual,
+  .hero-circle,
+  .floating-dot {
+    animation: none;
   }
 }

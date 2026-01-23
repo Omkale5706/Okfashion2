@@ -28,6 +28,7 @@ app.use('/api/bookings', require('./routes/bookingRoutes'));
 app.use('/api/scans', require('./routes/scanRoutes'));
 app.use('/api/admin', require('./routes/adminRoutes'));
 app.use('/api/trends', require('./routes/trendRoutes'));
+app.use('/api/nearby-salons', require('./routes/nearbySalonRoutes'));
 
 // Root route
 app.get('/', (req, res) => {
