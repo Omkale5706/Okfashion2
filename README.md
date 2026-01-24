@@ -153,9 +153,7 @@ The application is fully responsive and works seamlessly on:
 
 Contributions are welcome! Please feel free to submit a Pull Request.
 
-## 📄 License
 
-This project is licensed under the MIT License.
 
 ## 👨‍💻 Author
 
@@ -170,7 +168,7 @@ This project is licensed under the MIT License.
 
 ## 📞 Support
 
-For support, email support@okfashion.me or create an issue in the repository.
+For support, email okfashion@gmail.com or create an issue in the repository.
 
 ---
 
